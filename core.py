@@ -48,36 +48,42 @@ def edit_slides(
     user_prompt = f"Instruction: {instruction}\n\nBeamer code:\n{beamer_code}"
 
     try:
-        # Resolve API key and base_url (supports DashScope compatible API)
-        resolved_api_key = (
-            api_key
-            or os.environ.get("OPENAI_API_KEY")
-            or os.environ.get("DASHSCOPE_API_KEY")
+        # # Resolve API key and base_url (supports DashScope compatible API)
+        # resolved_api_key = (
+        #     api_key
+        #     or os.environ.get("OPENAI_API_KEY")
+        #     or os.environ.get("DASHSCOPE_API_KEY")
+        # )
+        # if not resolved_api_key:
+        #     raise RuntimeError(
+        #         "No API key provided. Set OPENAI_API_KEY or DASHSCOPE_API_KEY."
+        #     )
+        # client_kwargs = {"api_key": resolved_api_key}
+        # if resolved_api_key == os.environ.get("DASHSCOPE_API_KEY"):
+        #     client_kwargs["base_url"] = (
+        #         "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        #     )
+        # client = OpenAI(**client_kwargs)
+        # # Choose model (auto-adjust for DashScope if an OpenAI model is specified)
+        # model_to_use = model_name
+        # if (
+        #     isinstance(client_kwargs.get("base_url"), str)
+        #     and "dashscope.aliyuncs.com" in client_kwargs["base_url"]
+        #     and isinstance(model_name, str)
+        #     and (
+        #         model_name.startswith("gpt-")
+        #         or model_name.startswith("o1")
+        #         or model_name.startswith("o3")
+        #     )
+        # ):
+        #     model_to_use = os.environ.get("DASHSCOPE_MODEL", "qwen-plus")
+            
+        client = OpenAI(
+            base_url='https://api-inference.modelscope.cn/v1',
+            api_key='ms-96bf3c2c-e90c-4793-9586-37a482e23856', # ModelScope Token
         )
-        if not resolved_api_key:
-            raise RuntimeError(
-                "No API key provided. Set OPENAI_API_KEY or DASHSCOPE_API_KEY."
-            )
-        client_kwargs = {"api_key": resolved_api_key}
-        if resolved_api_key == os.environ.get("DASHSCOPE_API_KEY"):
-            client_kwargs["base_url"] = (
-                "https://dashscope.aliyuncs.com/compatible-mode/v1"
-            )
-
-        client = OpenAI(**client_kwargs)
-        # Choose model (auto-adjust for DashScope if an OpenAI model is specified)
-        model_to_use = model_name
-        if (
-            isinstance(client_kwargs.get("base_url"), str)
-            and "dashscope.aliyuncs.com" in client_kwargs["base_url"]
-            and isinstance(model_name, str)
-            and (
-                model_name.startswith("gpt-")
-                or model_name.startswith("o1")
-                or model_name.startswith("o3")
-            )
-        ):
-            model_to_use = os.environ.get("DASHSCOPE_MODEL", "qwen-plus")
+        model_to_use='Qwen/Qwen2.5-72B-Instruct', # ModelScope Model-Id, required
+                    
         response = client.chat.completions.create(
             model=model_to_use,
             messages=[
@@ -93,7 +99,7 @@ def edit_slides(
         logging.error(f"Error editing slides: {e}")
         # Provide guidance for DashScope access issues
         try:
-            if "dashscope.aliyuncs.com" in (client_kwargs.get("base_url") or "") and (
+            if (
                 "403" in str(e) or "access_denied" in str(e)
             ):
                 logging.error(
@@ -448,42 +454,51 @@ def process_stage(
     )
 
     try:
-        # Resolve API key and base_url (supports DashScope compatible API)
-        resolved_api_key = (
-            api_key
-            or os.environ.get("OPENAI_API_KEY")
-            or os.environ.get("DASHSCOPE_API_KEY")
-        )
-        if not resolved_api_key:
-            raise RuntimeError(
-                "No API key provided. Set OPENAI_API_KEY or DASHSCOPE_API_KEY."
-            )
-        client_kwargs = {"api_key": resolved_api_key}
-        if resolved_api_key == os.environ.get("DASHSCOPE_API_KEY"):
-            client_kwargs["base_url"] = (
-                "https://dashscope.aliyuncs.com/compatible-mode/v1"
-            )
+        # # Resolve API key and base_url (supports DashScope compatible API)
+        # resolved_api_key = (
+        #     api_key
+        #     or os.environ.get("OPENAI_API_KEY")
+        #     or os.environ.get("DASHSCOPE_API_KEY")
+        # )
+        # if not resolved_api_key:
+        #     raise RuntimeError(
+        #         "No API key provided. Set OPENAI_API_KEY or DASHSCOPE_API_KEY."
+        #     )
+        # client_kwargs = {"api_key": resolved_api_key}
+        # if resolved_api_key == os.environ.get("DASHSCOPE_API_KEY"):
+        #     client_kwargs["base_url"] = (
+        #         "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        #     )
 
-        client = OpenAI(**client_kwargs)
-        # Choose model (auto-adjust for DashScope if an OpenAI model is specified)
-        model_to_use = model_name
-        if (
-            isinstance(client_kwargs.get("base_url"), str)
-            and "dashscope.aliyuncs.com" in client_kwargs["base_url"]
-            and isinstance(model_name, str)
-            and (
-                model_name.startswith("gpt-")
-                or model_name.startswith("o1")
-                or model_name.startswith("o3")
-            )
-        ):
-            model_to_use = os.environ.get("DASHSCOPE_MODEL", "qwen-plus")
+        # client = OpenAI(**client_kwargs)
+        # # Choose model (auto-adjust for DashScope if an OpenAI model is specified)
+        # model_to_use = model_name
+        # if (
+        #     isinstance(client_kwargs.get("base_url"), str)
+        #     and "dashscope.aliyuncs.com" in client_kwargs["base_url"]
+        #     and isinstance(model_name, str)
+        #     and (
+        #         model_name.startswith("gpt-")
+        #         or model_name.startswith("o1")
+        #         or model_name.startswith("o3")
+        #     )
+        # ):
+        #     model_to_use = os.environ.get("DASHSCOPE_MODEL", "qwen-plus")
+            
+        client = OpenAI(
+            base_url='https://api-inference.modelscope.cn/v1',
+            api_key='ms-96bf3c2c-e90c-4793-9586-37a482e23856', # ModelScope Token
+        )
+        # model_to_use='Qwen/Qwen2.5-7B-Instruct' # 'Qwen/Qwen3-32B'
+        model_to_use = 'Qwen/Qwen2.5-72B-Instruct' # 'deepseek-ai/DeepSeek-V3.1' 'deepseek-ai/DeepSeek-R1-0528'
+                    
         response = client.chat.completions.create(
             model=model_to_use,
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_prompt},
             ],
+            stream=False
         )
 
         logging.info("Received response from LLM.")
@@ -492,7 +507,7 @@ def process_stage(
         logging.error(f"Error generating prompt for stage {stage}: {e}")
         # Provide guidance for DashScope access issues
         try:
-            if "dashscope.aliyuncs.com" in (client_kwargs.get("base_url") or "") and (
+            if (
                 "403" in str(e) or "access_denied" in str(e)
             ):
                 logging.error(

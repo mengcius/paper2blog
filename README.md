@@ -39,6 +39,14 @@ python paper2slides.py all 2505.18102
 
 This will download the paper, generate slides, compile to PDF, and open the presentation automatically.
 
+You can also generate a WeChat-style Markdown blog post from any arXiv paper:
+
+```sh
+python paper2slides.py blog 2505.18102
+```
+
+This will download the paper, generate a blog post with embedded images, and save it as a Markdown file.
+
 ## Usage
 
 ### CLI
@@ -58,6 +66,9 @@ python paper2slides.py generate <arxiv_id> --use_linter --use_pdfcrop
 # Compile slides (beamer) to PDF
 python paper2slides.py compile <arxiv_id>
 
+# Generate blog post
+python paper2slides.py blog <arxiv_id>
+
 # Full pipeline without opening PDF
 python paper2slides.py all <arxiv_id> --no-open
 ```
@@ -68,6 +79,7 @@ The ID can be identified from the URL: the ID for `https://arxiv.org/abs/xxxx.xx
 The underlying `tex2beamer.py` and `beamer2pdf.py` scripts handle the core functionality:
 - `tex2beamer.py` downloads and processes the arXiv paper using `arxiv-to-prompt`, then generates Beamer slides via OpenAI API
 - `beamer2pdf.py` compiles the LaTeX slides to PDF using pdflatex
+- `paper2blog.py` downloads and processes the arXiv paper, then generates a WeChat-style Markdown blog post
 
 The prompts sent to the LLM and responses are logged to `tex2beamer.log`.
 Linter output (when `--use_linter` is used) is saved to `source/<arxiv_id>/linter.log`.
@@ -104,6 +116,8 @@ To aid the LLM, we create a file called `ADDITIONAL.tex`, which contains all nec
 The LLM generates Beamer code from the LaTeX source, but since the first run may have issues, we ask the LLM to self-inspect and refine the output. Optionally, a third step involves using a linter to check the generated code, with the results fed back to the LLM for further corrections (this linter step was inspired by [The AI Scientist](https://www.arxiv.org/abs/2408.06292)). Finally, the Beamer code is compiled into a PDF presentation using pdflatex.
 
 The unified `paper2slides.py` script automates the entire process, typically completing in less than a few minutes with GPT-4.1 for a single paper.
+
+For blog post generation, a similar process is used but with different prompts tailored for creating engaging Markdown content suitable for WeChat public accounts. The blog post includes embedded images placed appropriately throughout the content.
 
 > [!WARNING]
 > The script will download files from the internet (arXiv), send information to the OpenAI API, and compile locally. Please be cautious about the content being shared and the potential risks.

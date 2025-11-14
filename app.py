@@ -51,6 +51,16 @@ def display_pdf_as_images(file_path: str):
     doc.close()
 
 
+def display_blog_post(file_path: str):
+    """Display the blog post content."""
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        st.markdown(content)
+    except Exception as e:
+        st.error(f"Failed to read blog post: {e}")
+
+
 def get_arxiv_id_from_query(query: str) -> str | None:
     """
     Resolve query to arxiv_id, similar to paper2slides.py get_arxiv_id function.
@@ -114,6 +124,38 @@ def run_compile_step(arxiv_id: str, pdflatex_path: str) -> bool:
     return success
 
 
+def run_blog_generation_step(arxiv_id: str, api_key: str, model_name: str) -> bool:
+    """
+    Step 3: Generate blog post from arXiv paper
+    """
+    logging.info("=" * 60)
+    logging.info("GENERATING BLOG POST FROM ARXIV PAPER")
+    logging.info("=" * 60)
+
+    # We need to import the blog generation function
+    try:
+        # Add the current directory to sys.path to import paper2blog
+        import sys
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from paper2blog import generate_blog_post
+        
+        success = generate_blog_post(
+            arxiv_id=arxiv_id,
+            api_key=api_key,
+            model_name=model_name,
+        )
+
+        if success:
+            logging.info("✓ Blog post generation completed successfully")
+        else:
+            logging.error("✗ Blog post generation failed")
+
+        return success
+    except ImportError as e:
+        logging.error(f"Failed to import blog generation module: {e}")
+        return False
+
+
 def run_full_pipeline(
     arxiv_id: str,
     api_key: str,
@@ -152,7 +194,7 @@ def run_full_pipeline(
 def main():
     st.set_page_config(layout="wide")
 
-    st.title("📄 Paper2Slides")
+    st.title("📄 Paper2Slides & Blog")
 
     # Initialize session state
     if "messages" not in st.session_state:
@@ -161,9 +203,11 @@ def main():
         st.session_state.arxiv_id = None
     if "pdf_path" not in st.session_state:
         st.session_state.pdf_path = None
+    if "blog_path" not in st.session_state:
+        st.session_state.blog_path = None
     if "pipeline_status" not in st.session_state:
         st.session_state.pipeline_status = (
-            "ready"  # ready, generating, compiling, completed, failed
+            "ready"  # ready, generating, compiling, blog_generating, completed, failed
         )
     if "pdflatex_path" not in st.session_state:
         st.session_state.pdflatex_path = "pdflatex"
@@ -216,6 +260,7 @@ def main():
         if st.button("Search Papers", key="search_button"):
             st.session_state.arxiv_id = None
             st.session_state.pdf_path = None
+            st.session_state.blog_path = None
             st.session_state.messages = []
             st.session_state.pipeline_status = "ready"
 
@@ -261,7 +306,19 @@ def main():
             ):
                 st.session_state.pipeline_status = "generating"
                 st.session_state.pdf_path = None
+                st.session_state.blog_path = None
                 st.session_state.run_full_pipeline = True
+                st.rerun()
+
+            if st.button(
+                "📝 Generate Blog Post",
+                key="run_blog",
+                disabled=not can_run,
+                help="Generate blog post (equivalent to 'python paper2slides.py blog <arxiv_id>')",
+            ):
+                st.session_state.pipeline_status = "blog_generating"
+                st.session_state.blog_path = None
+                st.session_state.run_full_pipeline = False
                 st.rerun()
 
             col1, col2 = st.columns(2)
@@ -274,6 +331,7 @@ def main():
                 ):
                     st.session_state.pipeline_status = "generating"
                     st.session_state.pdf_path = None
+                    st.session_state.blog_path = None
                     st.session_state.run_full_pipeline = False
                     st.rerun()
 
@@ -399,6 +457,28 @@ def main():
                     st.session_state.pipeline_status = "failed"
                 st.rerun()
 
+        elif (
+            st.session_state.pipeline_status == "blog_generating"
+            and st.session_state.arxiv_id
+        ):
+            with st.spinner("🔄 Generating blog post..."):
+                success = run_blog_generation_step(
+                    st.session_state.arxiv_id,
+                    st.session_state.openai_api_key,
+                    st.session_state.model_name,
+                )
+
+                if success:
+                    st.success("✅ Blog post generation completed!")
+                    st.session_state.pipeline_status = "completed"
+                    st.session_state.blog_path = (
+                        f"blog/{st.session_state.arxiv_id}/blog.md"
+                    )
+                else:
+                    st.error("❌ Blog post generation failed!")
+                    st.session_state.pipeline_status = "failed"
+                st.rerun()
+
         # Show PDF if available
         if (
             st.session_state.pdf_path
@@ -416,12 +496,29 @@ def main():
                 )
             display_pdf_as_images(st.session_state.pdf_path)
 
+        # Show blog post if available
+        elif (
+            st.session_state.blog_path
+            and os.path.exists(st.session_state.blog_path)
+            and st.session_state.pipeline_status == "completed"
+        ):
+            st.subheader("📝 Generated Blog Post")
+            blog_dir = os.path.dirname(st.session_state.blog_path)
+            with open(st.session_state.blog_path, "rb") as f:
+                st.download_button(
+                    "📥 Download Blog Post",
+                    f,
+                    file_name=f"{st.session_state.arxiv_id}_blog.md",
+                    mime="text/markdown",
+                )
+            display_blog_post(st.session_state.blog_path)
+
         elif st.session_state.pipeline_status == "ready":
-            st.info("🎯 Select a paper and run the pipeline to generate slides.")
+            st.info("🎯 Select a paper and run the pipeline to generate slides or blog post.")
         elif st.session_state.pipeline_status == "failed":
             st.error("❌ Pipeline failed. Check the logs above for details.")
         else:
-            st.info("📄 Generated PDF will be displayed here when ready.")
+            st.info("📄 Generated content will be displayed here when ready.")
 
 
 if __name__ == "__main__":

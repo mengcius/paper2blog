@@ -8,7 +8,7 @@ of prompt templates from YAML configuration files.
 import yaml
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class PromptManager:
     slide generation process.
     """
 
-    def __init__(self, config_path: str = None):
+    def __init__(self, config_path: Optional[Union[str, Path]] = None):
         """
         Initialize the PromptManager.
 
@@ -237,9 +237,135 @@ class PromptManager:
         user_prompt = self.get_prompt(stage_name, **vars)
         return system_message, user_prompt
 
+    def build_blog_prompt(
+        self,
+        latex_source: str,
+        image_paths: list[str] | None = None,
+        language: str = "en",
+    ) -> tuple[str, str]:
+        """
+        Build (system_message, rendered_prompt) for blog post generation.
+        
+        Args:
+            latex_source: The LaTeX source of the paper
+            image_paths: List of image paths
+            language: Language for the blog post ("en" for English, "zh" for Chinese)
+        """
+        # Determine which stage to use based on language
+        stage_name = "blog_zh" if language == "zh" else "blog"
+        
+        # Add blog-specific stage to config if not exists
+        if stage_name not in self.config["stages"]:
+            # Define default blog prompts
+            if language == "zh":
+                blog_system = "你是一位专业的科学 writer，专门将学术论文翻译成中文博客文章，适合微信公众号等中文平台发布。你的读者主要是对AI/机器学习感兴趣的技术专业人士和研究人员。"
+                blog_template = """
+请仔细阅读这篇学术论文，并创建一篇适合微信公众号风格的中文Markdown博客文章。目标读者是对AI/机器学习感兴趣的技术专业人士和研究人员。确保博客文章内容完整且易于理解。请遵循以下指导原则：
+
+- 结构：按照论文的逻辑顺序组织博客文章：
+  - 标题：使用论文的完整标题作为博客标题
+  - 作者信息：包含第一作者的姓名和所属机构（如果可用）
+  - 引言：简要说明论文的内容及其重要性
+  - 主要内容：详细解释关键概念、方法和发现
+  - 结果：重点介绍最重要的实验结果和定量数据
+  - 结论：总结工作的贡献和意义
+  - 参考文献：列出关键参考文献（可以用[1]、[2]等方式引用）
+
+- 风格：
+  - 使用清晰易懂的语言，避免过多的专业术语
+  - 使用要点列表和短段落以提高可读性
+  - 包含章节标题来组织内容
+  - 适当使用粗体文字强调关键点
+  - 谨慎使用表情符号来增强吸引力（例如，🔍 表示见解，📊 表示结果）
+
+- 图片：
+  - 包含相关图表来说明关键概念
+  - 将图片放置在引用它们的文本附近
+  - 为每张图片添加描述性标题
+  - 以下是你可以使用的图片路径列表：
+  {image_paths}
+  
+  在Markdown中插入图片请使用以下格式：
+  ![标题](图片路径)
+  
+  注意所有PDF图片已转换为PNG格式以获得更好的网页兼容性。
+
+- 数学公式：
+  - 对于简单公式，使用行内数学符号如 $E = mc^2$
+  - 对于复杂公式，使用块级数学符号：
+    $$
+    E = mc^2
+    $$
+  - 始终用通俗语言解释数学符号和概念
+
+论文内容：
+{latex_source}
+
+现在请提供完整的中文Markdown博客文章：以`````开头，提供内容，然后以````结尾。提供完整的博客文章。
+"""
+            else:
+                blog_system = "You are a professional science writer who specializes in translating academic papers into engaging blog posts for a general technical audience."
+                blog_template = """
+Please read this academic paper and create a WeChat-style Markdown blog post. The intended audience includes technical professionals and researchers interested in AI/machine learning. Ensure the blog post is self-contained and understandable independently. Pay attention to the following guidelines:
+
+- Structure: Organize the blog post in a logical sequence, typically following the structure of the paper:
+  - Title: Use the full paper title as the blog title
+  - Author information: Include the first author's name and affiliation if available
+  - Introduction: Briefly explain what the paper is about and why it matters
+  - Main content: Explain the key ideas, methods, and findings in detail
+  - Results: Highlight the most important experimental results with quantitative data
+  - Conclusion: Summarize the contributions and implications of the work
+  - References: List key references (you can cite them as [1], [2], etc.)
+
+- Style:
+  - Write in clear, accessible language avoiding excessive jargon
+  - Use bullet points and short paragraphs for readability
+  - Include section headings to organize content
+  - Emphasize key points with bold text where appropriate
+  - Use emojis sparingly to enhance engagement (e.g., 🔍 for insights, 📊 for results)
+
+- Images:
+  - Include relevant figures and diagrams to illustrate key concepts
+  - Place images close to the text that references them
+  - Add descriptive captions for each image
+  - Here is the list of image paths that you are allowed to use:
+  {image_paths}
+  
+  To include an image in Markdown, use the following format:
+  ![Caption](image_path)
+
+- Math:
+  - For simple equations, use inline math notation like $E = mc^2$
+  - For complex equations, use block math notation:
+    $$
+    E = mc^2
+    $$
+  - Always explain mathematical notation and concepts in plain language
+
+Paper content:
+{latex_source}
+
+Now provide the complete Markdown blog post: start with ``````, provide the content, and then end with ```. Provide the full blog post at once.
+"""
+            # Temporarily add to config
+            self.config["stages"][stage_name] = {
+                "system": blog_system,
+                "template": blog_template
+            }
+
+        # Assemble variables expected by templates
+        vars: Dict[str, Any] = {
+            "latex_source": latex_source,
+            "image_paths": "\n".join(image_paths or []),
+        }
+
+        system_message = self.get_system_message(stage_name)
+        user_prompt = self.get_prompt(stage_name, **vars)
+        return system_message, user_prompt
+
 
 # Convenience function for backward compatibility
-def get_prompt_manager(config_path: str = None) -> PromptManager:
+def get_prompt_manager(config_path: Optional[Union[str, Path]] = None) -> PromptManager:
     """
     Factory function to create a PromptManager instance.
 
