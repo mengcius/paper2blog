@@ -1,7 +1,17 @@
+# paper2blog
+
+## Quick Start
+
+Once installed, generate slides from any arXiv paper:
+
+```sh
+python paper2blog.py all 2505.18102
+```
+
+
 # paper2slides
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) ![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4.1-412991.svg) ![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg) ![arXiv](https://img.shields.io/badge/arXiv-papers-b31b1b.svg)
-
 
 Transform any arXiv papers into slides using LLMs! This tool is useful for quickly grasping the main ideas of research papers. Some examples of generated slides are in the [Demo](demo/) directory.
 
@@ -12,22 +22,22 @@ Python 3.10 or higher is required.
 To install:
 
 1. Clone this repository:
-    ```sh
-    git clone https://github.com/takashiishida/paper2slides.git
-    cd paper2slides
-    ```
 
+   ```sh
+   git clone https://github.com/takashiishida/paper2slides.git
+   cd paper2slides
+   ```
 2. Install the required Python packages:
-    ```sh
-    pip install -r requirements.txt
-    ```
 
+   ```sh
+   pip install -r requirements.txt
+   ```
 3. Ensure `pdflatex` is installed and available in your system's PATH. Optionally check if you can compile the sample `test.tex` by `pdflatex test.tex`. Check if `test.pdf` is generated correctly. Optionally check `chktex` and `pdfcrop` are working.
-
 4. Set up your OpenAI API key:
-    ```sh
-    export OPENAI_API_KEY='your-api-key'
-    ```
+
+   ```sh
+   export OPENAI_API_KEY='your-api-key'
+   ```
 
 ## Quick Start
 
@@ -77,6 +87,7 @@ Replace `<arxiv_id>` with the desired arXiv paper ID.
 The ID can be identified from the URL: the ID for `https://arxiv.org/abs/xxxx.xxxx` is `xxxx.xxxx`.
 
 The underlying `tex2beamer.py` and `beamer2pdf.py` scripts handle the core functionality:
+
 - `tex2beamer.py` downloads and processes the arXiv paper using `arxiv-to-prompt`, then generates Beamer slides via OpenAI API
 - `beamer2pdf.py` compiles the LaTeX slides to PDF using pdflatex
 - `paper2blog.py` downloads and processes the arXiv paper, then generates a WeChat-style Markdown blog post
@@ -96,7 +107,9 @@ The prompts are now managed through a YAML-based system in `prompts/config.yaml`
 You can customize the prompts by editing `prompts/config.yaml`. The system automatically handles figure path insertion and other dynamic content. The `PromptManager` class in `prompts/manager.py` handles template rendering and validation.
 
 ### Web UI
+
 Run the Streamlit app for a point-and-click experience:
+
 ```bash
 streamlit run app.py
 ```
@@ -123,4 +136,4 @@ For blog post generation, a similar process is used but with different prompts t
 > The script will download files from the internet (arXiv), send information to the OpenAI API, and compile locally. Please be cautious about the content being shared and the potential risks.
 
 > [!IMPORTANT]
-> Please respect the license of arXiv papers when using this tool. Each paper on arXiv has a specific license (CC BY, CC BY-SA, CC BY-NC-SA, CC BY-NC-ND, arXiv perpetual license, or CC Zero) that governs how the work can be used, modified, and distributed. Before creating and sharing slides from any paper, check the paper's license on its arXiv page and ensure your use complies with the license terms. For more information, see [arXiv's license documentation](https://info.arxiv.org/help/license/index.html).
+> Please respect the license of arXiv papers when using this tool. Each paper on arXiv has a specific license (CC BY, CC BY-SA, CC BY-NC-SA, CC BY-NC-ND, arXiv perpetual license, or CC Zero) that governs how the work can be used, modified, and distributed. Before creating and sharing slides from any paper, check the paper's license on its arXiv page and ensure your use complies with the license terms. For more information, see [arXiv&#39;s license documentation](https://info.arxiv.org/help/license/index.html).

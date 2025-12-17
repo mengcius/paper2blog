@@ -292,7 +292,7 @@ def _process_latex_source_worker(
 
 
 def get_latex_from_arxiv_with_timeout(
-    arxiv_id: str, cache_dir: str, timeout_seconds: int = 120
+    arxiv_id: str, cache_dir: str, timeout_seconds: int = 1200
 ) -> Optional[str]:
     """
     Attempt to retrieve LaTeX source from arXiv using arxiv-to-prompt, but
