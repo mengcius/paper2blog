@@ -49,6 +49,10 @@ def upload_media_to_weixin(access_token, file_path, type='image'):
     '''
     上传媒体文件到微信，类型分别有图片（image）、语音（voice）、视频（video）和缩略图（thumb）
     https://api.weixin.qq.com/cgi-bin/media/uploadnews?access_token=ACCESS_TOKEN
+    
+    TODO:
+        {'errcode': 45001, 'errmsg': 'media size out of limit hint
+        {'errcode': 40001, 'errmsg': 'invalid credential, access_token is invalid or not latest, could get access_token by getStableAccessToken, more details at https://mmbizurl.cn/s/JtxxFh33r rid: 6944c707-752b55e2-77398629'}
     '''
     url = 'https://api.weixin.qq.com/cgi-bin/material/add_material?access_token={}&type={}'.format(access_token, type)
     files = {'media': open(file_path, 'rb')}

@@ -15,9 +15,12 @@ from pathlib import Path
 import re
 import fitz  # PyMuPDF
 from openai import OpenAI
+
 from core import get_latex_from_arxiv_with_timeout, find_image_files, copy_image_assets_from_cache
 from prompts import PromptManager
-from weixin import upload_media_to_weixin, access_token
+# from weixin import upload_media_to_weixin, access_token
+from vpn_proxy import set_proxy, test_connection
+from weixin_uploader import WeixinMediaUploader
 
 # Initialize OpenAI client
 client = OpenAI(
@@ -30,7 +33,13 @@ client = OpenAI(
 model_to_use = 'deepseek-ai/DeepSeek-V3.2' 
 
 UPLOAD_WEIXIN = True  # 是否上传图片到微信服务器
+USE_VPN = True     # 是否使用VPN访问国际网络
 
+appid = "wx8f74e7a8737d4f2b"
+secret = "f7b6a3a7f5b99be54cab7752d796a1a8"
+uploader = WeixinMediaUploader(appid, secret)
+
+    
 # Set up logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -114,13 +123,13 @@ def process_image_files(output_directory: str, image_paths: list[str]) -> list[s
             # For non-PDF files, keep the original path
             img_path = image_path
         
-        # 上传图片到微信服务器，获取media_url替换本地路径
-        if UPLOAD_WEIXIN:
-            if img_path.lower().endswith('.png') or img_path.lower().endswith('.jpg') or img_path.lower().endswith('.jpeg'):
-                img_path = os.path.join(output_directory, img_path)
-                print('img_path', img_path)
-                thumb_media_id, media_url = upload_media_to_weixin(access_token, img_path)
-                img_path = media_url
+        # # 上传图片到微信服务器，获取media_url替换本地路径
+        # if UPLOAD_WEIXIN:
+        #     if img_path.lower().endswith('.png') or img_path.lower().endswith('.jpg') or img_path.lower().endswith('.jpeg'):
+        #         img_path = os.path.join(output_directory, img_path)
+        #         print('img_path', img_path)
+        #         thumb_media_id, media_url = upload_media_to_weixin(access_token, img_path)
+        #         img_path = media_url
             
         processed_paths.append(img_path)
         
@@ -153,16 +162,27 @@ def generate_blog_post(
     os.makedirs(cache_dir, exist_ok=True)
     os.makedirs(output_directory, exist_ok=True)
     os.makedirs(os.path.join(output_directory, "figures"), exist_ok=True)  # Ensure figures/ directory exists
+
+    # VPN
+    if USE_VPN:
+        set_proxy(use_vpn=True)
+        if not test_connection(): # 测试连接（如果启用了VPN）
+            print("警告: VPN网络连接测试失败, 取消使用VPN...")
+            set_proxy(use_vpn=False)
     
     # Fetch LaTeX source
     logger.info("Fetching LaTeX source from arXiv...")
-    latex_source = get_latex_from_arxiv_with_timeout(arxiv_id, cache_dir)
+    latex_source = get_latex_from_arxiv_with_timeout(arxiv_id, cache_dir) # arxiv_to_prompt
     if latex_source is None:
         logger.error(
             "Failed to retrieve LaTeX source from arXiv within timeout. Aborting generation."
         )
         return False
     
+    if USE_VPN:
+        # 将代理环境变量设置为空字符串，取消代理设置, 发微信或微博时不能用vpn
+        set_proxy(use_vpn=False)
+        
     # Ensure figures and images referenced by the paper are available under blog/<id>/
     try:
         copy_image_assets_from_cache(arxiv_id, cache_dir, output_directory)
@@ -226,6 +246,28 @@ def generate_blog_post(
         with open(blog_md_path, "w", encoding="utf-8") as f:
             f.write(blog_content)
         logger.info(f"Blog post saved to {blog_md_path}")
+        
+        # 将blog.md中的图片路径替换为微信上传后的URL路径
+        if UPLOAD_WEIXIN:
+            with open(blog_md_path, "r", encoding="utf-8") as f:
+                blog_md_content = f.read()
+                
+            for img_path in processed_image_paths: # blog.md下的相对路径. 如['figures\fig_ablation_stage3.png', ...]
+                # 反斜杠\ 检测并转义为正斜杠/ 
+                if '\\' in img_path:
+                    img_path = img_path.replace('\\', '/')
+                if img_path in blog_md_content:
+                    # 上传图片到微信服务器，获取media_url替换本地路径
+                    l_img_path = os.path.join(output_directory, img_path) # 本程序项目下的相对路径
+                    print('l_img_path:', l_img_path)
+                    # media_id, media_url = upload_media_to_weixin(access_token, img_path)
+                    media_id, media_url = uploader.upload_media(l_img_path, 'image')
+                    blog_md_content = blog_md_content.replace(img_path, media_url)
+                        
+            with open(blog_md_path, "w", encoding="utf-8") as f:
+                f.write(blog_md_content)
+            logger.info(f"Replaced image URLs in blog.md {blog_md_path}.")
+        
         return True
         
     except Exception as e:

@@ -12,7 +12,7 @@ import logging
 from openai import OpenAI
 import subprocess
 import arxiv
-from arxiv_to_prompt import process_latex_source
+from arxiv_to_prompt_core import process_latex_source
 from prompts import PromptManager
 from dotenv import load_dotenv
 import yaml
@@ -280,11 +280,13 @@ def _process_latex_source_worker(
     arxiv_id: str, cache_dir: str, result_container: list
 ) -> None:
     try:
+        # https://github.com/takashiishida/arxiv-to-prompt/blob/main/src/arxiv_to_prompt/core.py#L211
         latex = process_latex_source(
             arxiv_id,
             keep_comments=False,
-            remove_appendix_section=True,
             cache_dir=cache_dir,
+            use_cache=True, # Whether to use cached files if they exist (default: False)
+            remove_appendix_section=True, # Whether to remove the appendix section and everything after it
         )
         result_container.append((True, latex))
     except Exception as e:
