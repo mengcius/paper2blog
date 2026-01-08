@@ -23,23 +23,30 @@ from vpn_proxy import set_proxy, test_connection
 from weixin_uploader import WeixinMediaUploader
 
 # Initialize OpenAI client
+# 'Qwen/Qwen2.5-7B-Instruct' 'Qwen/Qwen3-32B' 'Qwen/Qwen2.5-72B-Instruct'(图片引用差,输出中断)
+# 'deepseek-ai/DeepSeek-V3.2'(较好) 'deepseek-ai/DeepSeek-V3.1'(较好) 'deepseek-ai/DeepSeek-R1-0528' 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B'
+# 'MiniMax/MiniMax-M2'(图片引用最佳,文本流畅) 'MiniMax/MiniMax-M1-80k'(像AI风格) 'ZhipuAI/GLM-4.6'(输出中断) 
+model_to_uses = ['deepseek-ai/DeepSeek-V3.2', 'deepseek-ai/DeepSeek-R1-0528', 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B'] # 模型备选表，当限额时按顺序尝试.
+model_to_use = model_to_uses[0]
 client = OpenAI(
     base_url='https://api-inference.modelscope.cn/v1',
     api_key='ms-96bf3c2c-e90c-4793-9586-37a482e23856', # ModelScope Token
 )
-# 'Qwen/Qwen2.5-7B-Instruct' 'Qwen/Qwen3-32B' 'Qwen/Qwen2.5-72B-Instruct'(图片引用差,输出中断)
-# 'deepseek-ai/DeepSeek-V3.2'(较好) 'deepseek-ai/DeepSeek-V3.1'(较好) 'deepseek-ai/DeepSeek-R1-0528'
-# 'MiniMax/MiniMax-M2'(图片引用最佳,文本流畅) 'MiniMax/MiniMax-M1-80k'(像AI风格) 'ZhipuAI/GLM-4.6'(输出中断) 
-model_to_use = 'deepseek-ai/DeepSeek-V3.2' 
 
-UPLOAD_WEIXIN = True  # 是否上传图片到微信服务器
-USE_VPN = True     # 是否使用VPN访问国际网络
+USE_VPN = True # 是否使用VPN访问国际网络
 
-appid = "wx8f74e7a8737d4f2b"
-secret = "f7b6a3a7f5b99be54cab7752d796a1a8"
-uploader = WeixinMediaUploader(appid, secret)
+UPLOAD_WEIXIN = True # 是否上传图片到微信服务器
+if UPLOAD_WEIXIN:
+    appid = "wx8f74e7a8737d4f2b"
+    secret = "f7b6a3a7f5b99be54cab7752d796a1a8"
+    uploader = WeixinMediaUploader(appid, secret)
 
-    
+# 文末宣传语
+xuanchuan = '''
+
+**关注「AI论文热榜」，紧跟最前沿、最硬核的AI技术进展！**
+'''
+
 # Set up logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -207,72 +214,86 @@ def generate_blog_post(
         language=language,
     )
     
-    try:
-        rechat = 2 # 重试次数
-        while rechat>0:
-            logger.info(f"LLM chating: {model_to_use}")
-            
-            # set extra_body for thinking control
-            extra_body = {
-                # enable thinking, set to False to disable
-                "enable_thinking": False
-            }
-            
-            response = client.chat.completions.create(
-                model=model_to_use,
-                messages=[
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": user_prompt},
-                ],
-                stream=False,
-                max_tokens=4000,
-                timeout=600,  # 默认30秒超时
-                extra_body=extra_body,
-            )
-            
-            logger.info(f"Received response from LLM.")
-            
-            # Extract blog content from response
-            blog_content = extract_content_from_response(response, "markdown")
-            
-            if not blog_content:
-                logger.error(f"No blog content found in the response: {response}")
-                rechat -= 1
-                # return False
-            else:
-                break
-            
-        # Save blog post
-        with open(blog_md_path, "w", encoding="utf-8") as f:
-            f.write(blog_content)
-        logger.info(f"Blog post saved to {blog_md_path}")
-        
-        # 将blog.md中的图片路径替换为微信上传后的URL路径
-        if UPLOAD_WEIXIN:
-            with open(blog_md_path, "r", encoding="utf-8") as f:
-                blog_md_content = f.read()
+    for i, model_to_use in enumerate(model_to_uses):
+        try:
+            rechat = 2 # 重试次数
+            while rechat>0:
+                logger.info(f"LLM chating: {model_to_use}")
                 
-            for img_path in processed_image_paths: # blog.md下的相对路径. 如['figures\fig_ablation_stage3.png', ...]
-                # 反斜杠\ 检测并转义为正斜杠/ 
-                if '\\' in img_path:
-                    img_path = img_path.replace('\\', '/')
-                if img_path in blog_md_content:
-                    # 上传图片到微信服务器，获取media_url替换本地路径
-                    l_img_path = os.path.join(output_directory, img_path) # 本程序项目下的相对路径
-                    print('l_img_path:', l_img_path)
-                    # media_id, media_url = upload_media_to_weixin(access_token, img_path)
-                    media_id, media_url = uploader.upload_media(l_img_path, 'image')
-                    blog_md_content = blog_md_content.replace(img_path, media_url)
-                        
+                # set extra_body for thinking control
+                extra_body = {
+                    # enable thinking, set to False to disable
+                    "enable_thinking": False
+                }
+                
+                response = client.chat.completions.create(
+                    model=model_to_use,
+                    messages=[
+                        {"role": "system", "content": system_message},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    stream=False,
+                    max_tokens=4000,
+                    timeout=600,  # 默认30秒超时
+                    extra_body=extra_body,
+                )
+                
+                logger.info(f"Received response from LLM.")
+                
+                # Extract blog content from response
+                blog_content = extract_content_from_response(response, "markdown")
+                
+                if not blog_content:
+                    logger.error(f"No blog content found in the response: {response}")
+                    rechat -= 1
+                    # return False
+                else:
+                    break
+                
+            # Save blog post
             with open(blog_md_path, "w", encoding="utf-8") as f:
-                f.write(blog_md_content)
-            logger.info(f"Replaced image URLs in blog.md {blog_md_path}.")
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"Error generating blog post: {e}")
-        return False
+                f.write(blog_content)
+            logger.info(f"Blog post saved to {blog_md_path}")
+            
+            # 将blog.md中的图片路径替换为微信上传后的URL路径
+            if UPLOAD_WEIXIN:
+                with open(blog_md_path, "r", encoding="utf-8") as f:
+                    blog_md_content = f.read()
+                    
+                for img_path in processed_image_paths: # blog.md下的相对路径. 如['figures\fig_ablation_stage3.png', ...]
+                    # 反斜杠\ 检测并转义为正斜杠/ 
+                    # if '\\' in img_path:
+                    #     img_path = img_path.replace('\\', '/')
+                    for img_path in [img_path, img_path.replace('\\', '/'), img_path.replace('/', '\\')]:
+                        if img_path in blog_md_content:
+                            # 上传图片到微信服务器，获取media_url替换本地路径
+                            l_img_path = os.path.join(output_directory, img_path) # 本程序项目下的相对路径
+                            print('l_img_path:', l_img_path)
+                            # media_id, media_url = upload_media_to_weixin(access_token, img_path)
+                            media_id, media_url = uploader.upload_media(l_img_path, 'image')
+                            blog_md_content = blog_md_content.replace(img_path, media_url)
+                            
+                with open(blog_md_path, "w", encoding="utf-8") as f:
+                    f.write(blog_md_content)
+                    f.write(xuanchuan)
+                logger.info(f"Replaced image URLs in blog.md {blog_md_path}.")
+            
+            return True
+            
+        except Exception as e:
+            error_msg = str(e)
+            # 检查是否是配额错误
+            if "exceeded today's quota" in error_msg or "Error code: 429" in error_msg:
+                logger.error(f"模型 {model_to_use} 超出配额: {e}")
+                if i < len(model_to_uses) - 1: # 尝试下一个模型
+                    continue
+                else:
+                    logger.error("所有模型都超出配额")
+                    return False
+            else:
+                # 其他错误，直接返回False
+                logger.error(f"Error generating blog post: {e}")
+                return False
 
 def extract_content_from_response(response, language: str = "markdown") -> str | None:
     """
@@ -336,3 +357,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
