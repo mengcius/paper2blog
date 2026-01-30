@@ -45,6 +45,9 @@ if UPLOAD_WEIXIN:
 xuanchuan = '''
 
 **关注「AI论文热榜」，紧跟最前沿、最硬核的AI技术进展！**
+
+**如有论文辅导、项目开发等需求，请联系小编，微信号: GCgcong**
+
 '''
 
 # Set up logging
@@ -182,7 +185,7 @@ def generate_blog_post(
     latex_source = get_latex_from_arxiv_with_timeout(arxiv_id, cache_dir) # arxiv_to_prompt
     if latex_source is None:
         logger.error(
-            "Failed to retrieve LaTeX source from arXiv within timeout. Aborting generation."
+            f"Failed to retrieve LaTeX source from arXiv within timeout. {arxiv_id}"
         )
         return False
     

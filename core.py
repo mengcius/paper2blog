@@ -19,6 +19,7 @@ import yaml
 import shutil
 import threading
 from typing import Optional, Tuple
+import time
 
 load_dotenv(override=True)
 
@@ -285,8 +286,8 @@ def _process_latex_source_worker(
             arxiv_id,
             keep_comments=False,
             cache_dir=cache_dir,
-            use_cache=True, # Whether to use cached files if they exist (default: False)
-            remove_appendix_section=True, # Whether to remove the appendix section and everything after it
+            use_cache=True,  # Whether to use cached files if they exist (default: False)
+            remove_appendix_section=True,  # Whether to remove the appendix section and everything after it
         )
         result_container.append((True, latex))
     except Exception as e:
@@ -294,31 +295,79 @@ def _process_latex_source_worker(
 
 
 def get_latex_from_arxiv_with_timeout(
-    arxiv_id: str, cache_dir: str, timeout_seconds: int = 1200
+    arxiv_id: str, 
+    cache_dir: str, 
+    timeout_seconds: int = 1200,
+    max_retries: int = 3,
+    retry_delay: float = 5.0
 ) -> Optional[str]:
     """
     Attempt to retrieve LaTeX source from arXiv using arxiv-to-prompt, but
     give up after timeout_seconds to avoid hanging the UI.
+    Will retry multiple times on failure.
+    
+    Args:
+        arxiv_id: The arXiv ID to fetch
+        cache_dir: Directory to store/cache downloaded files
+        timeout_seconds: Timeout for each request attempt
+        max_retries: Maximum number of retry attempts (default: 3)
+        retry_delay: Delay between retries in seconds (default: 5.0)
     """
-    result_container: list[Tuple[bool, object]] = []
-    thread = threading.Thread(
-        target=_process_latex_source_worker,
-        args=(arxiv_id, cache_dir, result_container),
-    )
-    thread.daemon = True
-    thread.start()
-    thread.join(timeout_seconds)
-    if thread.is_alive():
-        logging.warning("Timed out retrieving LaTeX from arXiv (arxiv-to-prompt).")
-        return None
-    if not result_container:
-        return None
-    success, payload = result_container[0]
-    if success:
-        return payload if isinstance(payload, str) and payload.strip() else None
-    else:
-        logging.warning(f"arxiv-to-prompt error: {payload}")
-        return None
+    for attempt in range(max_retries + 1):  # First attempt + retries
+        result_container: list[Tuple[bool, object]] = []
+        
+        thread = threading.Thread(
+            target=_process_latex_source_worker,
+            args=(arxiv_id, cache_dir, result_container),
+        )
+        thread.daemon = True
+        thread.start()
+        thread.join(timeout_seconds)
+        
+        if thread.is_alive():
+            logging.warning(f"Attempt {attempt + 1} timed out retrieving LaTeX from arXiv (arxiv-to-prompt).")
+            if attempt < max_retries:
+                logging.info(f"Retrying in {retry_delay} seconds... ({attempt + 1}/{max_retries})")
+                time.sleep(retry_delay)
+                continue
+            else:
+                logging.error("Max retries reached. Failed to retrieve LaTeX from arXiv.")
+                return None
+        
+        if not result_container:
+            logging.warning(f"Attempt {attempt + 1} returned no result.")
+            if attempt < max_retries:
+                logging.info(f"Retrying in {retry_delay} seconds... ({attempt + 1}/{max_retries})")
+                time.sleep(retry_delay)
+                continue
+            else:
+                return None
+                
+        success, payload = result_container[0]
+        if success:
+            result = payload if isinstance(payload, str) and payload.strip() else None
+            if result:
+                logging.info(f"Successfully retrieved LaTeX source after {attempt + 1} attempt(s)")
+                return result
+            else:
+                logging.warning(f"Attempt {attempt + 1} returned empty LaTeX content.")
+                if attempt < max_retries:
+                    logging.info(f"Retrying in {retry_delay} seconds... ({attempt + 1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    return None
+        else:
+            logging.warning(f"Attempt {attempt + 1} failed with error: {payload}")
+            if attempt < max_retries:
+                logging.info(f"Retrying in {retry_delay} seconds... ({attempt + 1}/{max_retries})")
+                time.sleep(retry_delay)
+                continue
+            else:
+                logging.error(f"All {max_retries + 1} attempts failed to retrieve LaTeX from arXiv.")
+                return None
+    
+    return None
 
 
 def extract_definitions_and_usepackage_lines(latex_source: str) -> list[str]:
